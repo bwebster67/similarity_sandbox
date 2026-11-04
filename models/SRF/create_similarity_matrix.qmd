@@ -1,0 +1,39 @@
+
+
+homework for next week: investigate accuracy vs agreement
+ re-read the pre-print paper, especially the complicated stuff about the SRF model. 
+
+need:
+pip install "git+https://github.com/florianmahner/pysrf.git"
+
+### Imports
+```{python}
+import numpy as np
+import pandas as pd
+```
+
+### Pulling triplets from data/triplets.parquet
+```{python}
+triplets_full = pd.read_parquet("../../data/triplets_full.parquet")
+triplets_full.iloc[0][0]
+
+triplets = triplets_full[['image1','image2','image3']].to_numpy(dtype=np.intp) - 1
+```
+
+
+### Getting similarity matrix from triplet data
+Using helpers from https://github.com/florianmahner/similarity-factorization/
+```{python}
+from helpers import compute_similarity_matrix_from_triplets
+
+# no extension
+out_filename = 'computed_similarity'
+
+S = compute_similarity_matrix_from_triplets(
+    n=1854,
+    triplets=triplets,
+    alpha=1.0 # alpha is a smoothing strength coefficient, 1 is default
+)
+np.savez_compressed(f"../../data/{out_filename}.npz", similarity=S)
+```
+

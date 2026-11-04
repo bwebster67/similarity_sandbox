@@ -1,0 +1,9 @@
+
+```{python}
+import pandas as pd
+
+triplets_full = pd.read_csv("C:/Users/bwebs/Downloads/full_triplet_dataset/triplet_dataset/triplets_large_final_correctednc_correctedorder.csv", sep='\t')
+
+triplets_full.to_parquet("data/triplets_full.parquet", index = False)
+
+```
