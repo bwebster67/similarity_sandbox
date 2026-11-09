@@ -1,0 +1,38 @@
+
+### Imports
+```{python}
+import numpy as np
+import pandas as pd
+import pysrf
+```
+
+
+### Loading in similarity matrix
+```{python}
+similarity_npz = 'computed_similarity.npz'
+S = np.load(f"../../data/{similarity_npz}")
+```
+
+
+### Applying SRF to similarity matrix
+```{python}
+rank = pysrf.estimate_rank(S, k_max=30)["k_star"] 
+```
+
+
+### pysrf Example Code
+```{python}
+import numpy as np
+from pysrf import SRF, estimate_rank
+
+S = np.load("my_similarity.npy")
+
+# rank = estimate_rank(S, k_max=30)["k_star"]  # 1. estimate the number of dimensions
+# model = SRF(rank=rank, random_state=0)
+# W = model.fit_transform(S)                   # 2. non-negative embedding (items x dimensions)
+# S_hat = model.reconstruct()                  # 3. reconstruction W @ W.T
+```
+
+
+
+
