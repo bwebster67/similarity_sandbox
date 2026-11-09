@@ -1,15 +1,24 @@
 
-
+### Imports & Loading
 ```{python}
 import pandas as pd
-```
-
-```{python}
 triplets_full = pd.read_parquet("../data/triplets_full.parquet")
 ```
 
+### Finding definition of RT
 ```{python}
 
 triplets_full.head()
+print(triplets_full["RT"].max())
+print(triplets_full["RT"].min())
+print(triplets_full["RT"].max() + (triplets_full["RT"].min()*-1))
 
+print(triplets_full["RT"].mean())
+
+print(triplets_full["RT"][triplets_full["RT"] < 0].count()) # only 15 of them are below 0, probably ignorable!
+
+print(triplets_full["RT"][triplets_full["RT"] > 1000000].count()) # only 8, data quality thing
 ```
+RT appears to be miliseconds reaction time. Some data quality issues at the extreme ends.
+
+# Next move: Calculating variance!
