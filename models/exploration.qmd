@@ -1,0 +1,15 @@
+
+
+```{python}
+import pandas as pd
+```
+
+```{python}
+triplets_full = pd.read_parquet("../data/triplets_full.parquet")
+```
+
+```{python}
+
+triplets_full.head()
+
+```
