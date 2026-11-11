@@ -23,7 +23,7 @@ print(triplets_full["RT"][triplets_full["RT"] > 1000000].count()) # only 8, data
 ```
 RT appears to be miliseconds reaction time. Some data quality issues at the extreme ends.
 
-# Next move: Calculating variance!
+## Next move: Calculating variance!
 
 ```{python}
 
