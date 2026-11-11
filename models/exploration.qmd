@@ -2,6 +2,8 @@
 ### Imports & Loading
 ```{python}
 import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
 triplets_full = pd.read_parquet("../data/triplets_full.parquet")
 ```
 
@@ -22,3 +24,177 @@ print(triplets_full["RT"][triplets_full["RT"] > 1000000].count()) # only 8, data
 RT appears to be miliseconds reaction time. Some data quality issues at the extreme ends.
 
 # Next move: Calculating variance!
+
+```{python}
+
+triplets = triplets_full[['image1','image2','image3']] - 1 #subtracting 1 so they're 0-indexed
+triplets.head()
+
+```
+
+```{python}
+
+import numpy as np
+import pandas as pd
+
+# Total number of responses
+print(f"Total responses: {len(triplets):,}")
+
+# Total number of unique images
+unique_images = pd.unique(
+    triplets[["image1", "image2", "image3"]].to_numpy().ravel()
+)
+print(f"Unique images: {len(unique_images):,}")
+
+# Identify unique unordered triplets
+# eg. (12, 45, 87) and (87, 12, 45) are the same triplet.
+df = triplets.copy()
+
+sorted_ids = np.sort(
+    df[["image1", "image2", "image3"]].to_numpy(),
+    axis=1
+)
+
+df[["id_a", "id_b", "id_c"]] = sorted_ids
+
+# Number of unique triplets
+group_cols = ["id_a", "id_b", "id_c"]
+
+response_counts = (
+    df.groupby(group_cols, sort=False)
+      .size()
+      .rename("n_responses")
+      .reset_index()
+)
+
+print(f"Unique triplets: {len(response_counts):,}")
+print(f"Mean responses per triplet: {response_counts['n_responses'].mean():.2f}")
+print(f"Median responses per triplet: {response_counts['n_responses'].median():.0f}")
+print(f"Minimum responses: {response_counts['n_responses'].min()}")
+print(f"Maximum responses: {response_counts['n_responses'].max()}")
+
+print("\nResponse count distribution:")
+print(response_counts["n_responses"].describe(
+    percentiles=[0.25, 0.5, 0.75, 0.9, 0.95, 0.99]
+))
+
+```
+
+```{python}
+counts = response_counts["n_responses"]
+
+print(f"Triplets seen once: {(counts == 1).sum():,}")
+print(f"Triplets seen 2+ times: {(counts >= 2).sum():,}")
+print(f"Triplets seen 5+ times: {(counts >= 5).sum():,}")
+print(f"Triplets seen 10+ times: {(counts >= 10).sum():,}")
+print(f"Triplets seen 20+ times: {(counts >= 20).sum():,}")
+
+print("\nMost frequently repeated triplets:")
+print(
+    response_counts.nlargest(20, "n_responses")
+    .to_string(index=False)
+)
+
+```
+
+### Variance of odd-one-out choices
+
+Use `image3` as the selected image and group by the unordered triplet. IDs remain
+**zero-indexed**. Keep the earlier threshold of 20 responses (`min_responses`).
+Image IDs are categorical labels, so their numerical variance is not meaningful.
+Instead, let $p_a,p_b,p_c$ be the proportions selecting each image and sum the
+variances of the three binary choice indicators:
+
+$$V = \sum_k p_k(1-p_k) = 1-(p_a^2+p_b^2+p_c^2).$$
+
+This empirical variance (`ddof=0`, also called Gini impurity) ranges from **0**
+for unanimous responses to **2/3** for an equal split. We rank and plot this
+descriptive measure. The CSV also includes sample-corrected variance
+$V_s=nV/(n-1)$ (`ddof=1`), which can exceed 2/3 in finite samples.
+These describe variation in responses, not uncertainty in estimated proportions.
+The [paper's Appendix A](https://arxiv.org/pdf/2605.26921) discusses repeated-triplet
+agreement; this analysis is not a reproduction of its consistency estimator.
+
+```{python}
+from pathlib import Path
+
+min_responses = 5
+repeated_triplets = response_counts.loc[response_counts.n_responses >= min_responses]
+repeated_responses = df.merge(
+    repeated_triplets[group_cols], on=group_cols, how="inner", validate="many_to_one"
+)
+assert (repeated_responses.id_a < repeated_responses.id_b).all()
+assert (repeated_responses.id_b < repeated_responses.id_c).all()
+choice_cols = ["chose_a", "chose_b", "chose_c"]
+for label in ("a", "b", "c"):
+    repeated_responses[f"chose_{label}"] = (
+        repeated_responses.image3 == repeated_responses[f"id_{label}"]
+    ).astype(int)
+assert (repeated_responses[choice_cols].sum(axis=1) == 1).all()
+choice_counts = repeated_responses.groupby(group_cols)[choice_cols].sum().rename(
+    columns={f"chose_{k}": f"n_{k}" for k in ("a", "b", "c")}
+)
+triplet_variances = repeated_triplets.set_index(group_cols).join(choice_counts)
+for label in ("a", "b", "c"):
+    p = triplet_variances[f"n_{label}"] / triplet_variances.n_responses
+    triplet_variances[f"p_{label}"] = p
+    triplet_variances[f"variance_{label}"] = p * (1 - p)
+triplet_variances["choice_variance"] = triplet_variances[
+    ["variance_a", "variance_b", "variance_c"]
+].sum(axis=1)
+triplet_variances["choice_variance_sample"] = (
+    triplet_variances.choice_variance * triplet_variances.n_responses
+    / (triplet_variances.n_responses - 1)
+)
+triplet_variances = triplet_variances.reset_index().sort_values(
+    ["choice_variance", "n_responses", *group_cols],
+    ascending=[False, False, True, True, True],
+).reset_index(drop=True)
+triplet_variances.insert(0, "variance_rank", triplet_variances.choice_variance.rank(
+    method="min", ascending=False
+).astype(int))
+output_dir = Path("../data")
+triplet_variances.to_csv(output_dir / "triplet_variances_20plus.csv", index=False)
+top_triplets = triplet_variances.head(20)
+print(triplet_variances.choice_variance.describe())
+print("Highest-variance triplets (zero-indexed IDs; ties share a rank):")
+print(top_triplets[["variance_rank", *group_cols, "n_responses", "n_a", "n_b", "n_c",
+                    "choice_variance"]].to_string(index=False))
+```
+
+```{python}
+fig, axes = plt.subplots(1, 2, figsize=(12, 4.5), layout="constrained")
+ordered = triplet_variances.sort_values("choice_variance")
+axes[0].scatter(np.arange(1, len(ordered) + 1), ordered.choice_variance,
+                s=12, alpha=0.6)
+axes[0].axhline(2/3, color="black", linestyle="--", label="Equal split (2/3)")
+axes[0].set(xlabel="Triplet (sorted by variance)", ylabel="Empirical choice variance",
+            title=f"Each triplet with {min_responses}+ responses", ylim=(0, 0.7))
+axes[0].legend()
+axes[1].hist(ordered.choice_variance, bins=30, edgecolor="white")
+axes[1].axvline(2/3, color="black", linestyle="--")
+axes[1].set(xlabel="Empirical choice variance", ylabel="Number of triplets",
+            title="Distribution of choice variance")
+fig.savefig(output_dir / "triplet_choice_variance_20plus.png", dpi=180)
+plt.show()
+
+fig, ax = plt.subplots(figsize=(11, 8), layout="constrained")
+y = np.arange(len(top_triplets))
+left = np.zeros(len(top_triplets))
+for label, color in zip(("a", "b", "c"), ("#4477AA", "#EEAA33", "#228833")):
+    proportions = top_triplets[f"p_{label}"].to_numpy()
+    ax.barh(y, proportions, left=left, label=f"Image {label}", color=color)
+    left += proportions
+labels = [
+    f"({int(r.id_a)}, {int(r.id_b)}, {int(r.id_c)})  n={int(r.n_responses)}  V={r.choice_variance:.5f}"
+    for r in top_triplets.itertuples()
+]
+ax.set_yticks(y, labels)
+ax.invert_yaxis()
+ax.set(xlim=(0, 1), xlabel="Proportion selecting each image as odd one out",
+       title="20 highest-variance triplets (zero-indexed IDs: a, b, c)")
+ax.legend(loc="upper center", bbox_to_anchor=(0.5, -0.08), ncol=3)
+fig.savefig(output_dir / "triplet_highest_variance_20plus.png", dpi=180)
+plt.show()
+```
+
