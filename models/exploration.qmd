@@ -85,6 +85,8 @@ counts = response_counts["n_responses"]
 
 print(f"Triplets seen once: {(counts == 1).sum():,}")
 print(f"Triplets seen 2+ times: {(counts >= 2).sum():,}")
+print(f"Triplets seen 3+ times: {(counts >= 3).sum():,}")
+print(f"Triplets seen 4+ times: {(counts >= 4).sum():,}")
 print(f"Triplets seen 5+ times: {(counts >= 5).sum():,}")
 print(f"Triplets seen 10+ times: {(counts >= 10).sum():,}")
 print(f"Triplets seen 20+ times: {(counts >= 20).sum():,}")
@@ -97,7 +99,7 @@ print(
 
 ```
 
-### Variance of odd-one-out choices
+<!-- ### Variance of odd-one-out choices
 
 Use `image3` as the selected image and group by the unordered triplet. IDs remain
 **zero-indexed**. Keep the earlier threshold of 20 responses (`min_responses`).
@@ -118,7 +120,7 @@ agreement; this analysis is not a reproduction of its consistency estimator.
 ```{python}
 from pathlib import Path
 
-min_responses = 5
+min_responses = 20
 repeated_triplets = response_counts.loc[response_counts.n_responses >= min_responses]
 repeated_responses = df.merge(
     repeated_triplets[group_cols], on=group_cols, how="inner", validate="many_to_one"
@@ -168,7 +170,7 @@ ordered = triplet_variances.sort_values("choice_variance")
 axes[0].scatter(np.arange(1, len(ordered) + 1), ordered.choice_variance,
                 s=12, alpha=0.6)
 axes[0].axhline(2/3, color="black", linestyle="--", label="Equal split (2/3)")
-axes[0].set(xlabel="Triplet (sorted by variance)", ylabel="Empirical choice variance",
+axes[0].set(xlabel="Triplet (sorited by variance)", ylabel="Empirical choice variance",
             title=f"Each triplet with {min_responses}+ responses", ylim=(0, 0.7))
 axes[0].legend()
 axes[1].hist(ordered.choice_variance, bins=30, edgecolor="white")
@@ -198,3 +200,82 @@ fig.savefig(output_dir / "triplet_highest_variance_20plus.png", dpi=180)
 plt.show()
 ```
 
+### Save all rank-1 triplets as image strips
+
+Read the saved rankings and use each zero-indexed image ID as a row position in
+`wrangled_embeddings.csv`. Its `unique_id` column gives the corresponding JPEG
+filename in `hebart_reference_images`. Panels follow `id_a`, `id_b`, `id_c` order.
+
+```{python}
+from pathlib import Path
+from PIL import Image, ImageOps
+
+# Support execution from either the project root or the models directory.
+data_dir = Path("data") if Path("data/wrangled_embeddings.csv").is_file() else Path("../data")
+embeddings = pd.read_csv(data_dir / "wrangled_embeddings.csv")
+rank1_triplets = pd.read_csv(data_dir / "triplet_variances_20plus.csv")
+rank1_triplets = rank1_triplets.loc[rank1_triplets["variance_rank"].eq(1)].copy()
+
+low_variance_triplets = pd.read_csv(data_dir / "triplet_variances_20plus.csv")
+low_variance_triplets = low_variance_triplets.nsmallest(20, "choice_variance").copy()
+
+
+def save_triplet_images(
+    triplet, embeddings, image_dir, save_dir, panel_size=480, gap=60, margin=10
+):
+    """Save one triplet as three uncropped square panels on a white PNG canvas.
+
+    `triplet` contains zero-indexed id_a/id_b/id_c; embeddings must retain CSV order.
+    Returns the saved PNG path. Requires Pillow in the notebook environment.
+    """
+    image_ids = [int(triplet[column]) for column in ("id_a", "id_b", "id_c")]
+    if any(image_id < 0 or image_id >= len(embeddings) for image_id in image_ids):
+        raise ValueError(f"Triplet IDs are outside the embeddings row range: {image_ids}")
+    image_names = embeddings.iloc[image_ids]["unique_id"].tolist()
+    image_paths = [Path(image_dir) / f"{name}.jpg" for name in image_names]
+    for path in image_paths:
+        if not path.is_file():
+            raise FileNotFoundError(f"Missing reference image: {path}")
+
+    canvas = Image.new(
+        "RGB", (3 * panel_size + 2 * gap + 2 * margin, panel_size + 2 * margin), "white"
+    )
+    for position, path in enumerate(image_paths):
+        with Image.open(path) as source:
+            panel = ImageOps.contain(
+                ImageOps.exif_transpose(source).convert("RGB"),
+                (panel_size, panel_size),
+                method=Image.Resampling.LANCZOS,
+            )
+        x = margin + position * (panel_size + gap) + (panel_size - panel.width) // 2
+        y = margin + (panel_size - panel.height) // 2
+        canvas.paste(panel, (x, y))
+
+    save_dir = Path(save_dir)
+    save_dir.mkdir(parents=True, exist_ok=True)
+    save_path = save_dir / ("triplet_" + "_".join(map(str, image_ids)) + ".png")
+    canvas.save(save_path)
+    return save_path
+
+
+rank1_image_dir = data_dir / "triplet_photos" / "rank1"
+rank1_triplets["saved_image"] = [
+    str(save_triplet_images(row, embeddings, data_dir / "hebart_reference_images", rank1_image_dir))
+    for _, row in rank1_triplets.iterrows()
+]
+print(f"Saved {len(rank1_triplets)} rank-1 triplets to {rank1_image_dir.resolve()}")
+rank1_triplets[["id_a", "id_b", "id_c", "saved_image"]]
+```
+
+```{python}
+# save_triplet_images()
+
+low_rank_imgs_dir = data_dir / "triplet_photos" / "low_var"
+low_variance_triplets["saved_image"] = [
+    str(save_triplet_images(row, embeddings, data_dir / "hebart_reference_images", low_rank_imgs_dir))
+    for _, row in low_variance_triplets.iterrows()
+]
+print(f"Saved {len(low_variance_triplets)} lowest-variance triplets to {low_rank_imgs_dir.resolve()}")
+low_variance_triplets[["id_a", "id_b", "id_c", "choice_variance", "saved_image"]]
+
+``` -->
