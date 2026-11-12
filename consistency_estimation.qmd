@@ -10,6 +10,11 @@ distance_proportions = [distances_sum/dist for dist in distances]
 distance_proportions_sum = sum(distance_proportions) 
 probability_estimates = [dp/distance_proportions_sum for dp in distance_proportions]
 
+```{python}
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+```
 
 ## Normalized Probabilities From Embeddings
 ```{python}
@@ -52,7 +57,54 @@ probability_estimates_neg = embeddings_to_probabilities(embeddings_neg, contains
 ### Next 
 The above code block above defines a function to estimate a choice distribution for a triplet. Now, you need to write a function to do that for a dataframe of embeddings, and save it to a .csv file. 
 
+- [ ] Make a column identifying the image selected for each triplet, so you can sort the other cols
+- [ ] 
+
 ```{python}
 
+triplets_full = pd.read_parquet("data/triplets_full.parquet")
+triplets = triplets_full[['image1','image2','image3']] - 1 #subtracting 1 so they're 0-indexed
 
+# Identify unique unordered triplets
+# eg. (12, 45, 87) and (87, 12, 45) are the same triplet.
+df = triplets.copy()
+
+sorted_ids = np.sort(
+    df[["image1", "image2", "image3"]].to_numpy(),
+    axis=1
+)
+
+group_cols = ["id_a", "id_b", "id_c"]
+
+chosen_ids = triplets['image3']
+df[group_cols] = sorted_ids
+df["id_chosen"] = chosen_ids
+df = df.drop(columns= ["image1", "image2", "image3"])
+
+# Number of unique triplets
+times_chosen = ["a_chosen", "b_chosen", "c_chosen"]
+
+
+# Counts how many times each was chosen
+agg = df.copy()
+agg = (
+    df.assign(**{
+        count_col: agg[id_col].eq(agg["id_chosen"]).astype(int)
+        for id_col, count_col in zip(group_cols, times_chosen)
+    })
+    .groupby(group_cols, as_index=False, sort=False)[times_chosen]
+    .sum()
+)
+
+proportions = ["a_prop", "b_prop", "c_prop"]
+agg[proportions] = agg[times_chosen].div(agg[times_chosen].sum(axis=1), axis=0)
+
+agg_5plus = agg.loc[
+    agg[["a_chosen", "b_chosen", "c_chosen"]].sum(axis=1) >= 5
+].copy()
+```
+
+### Writing the aggregated variance to human_triplet_variance.csv
+```{python}
+agg_5plus.to_csv("data/agg_5plus.csv")
 ```
