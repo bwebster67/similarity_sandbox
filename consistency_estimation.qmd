@@ -1,0 +1,58 @@
+
+
+### Pseudocode (probably wont render right in markdown sorry!):
+
+embeddings = [A, B, C]
+<!-- the ordering below is important, b/c dist(B,C) determines the probability for A, so it is in the first slot where A is -->
+distances = [dist(B, C), dist(A, C), dist(A, B)]
+distances_sum = sum(distances)
+distance_proportions = [distances_sum/dist for dist in distances]
+distance_proportions_sum = sum(distance_proportions) 
+probability_estimates = [dp/distance_proportions_sum for dp in distance_proportions]
+
+
+## Normalized Probabilities From Embeddings
+```{python}
+from scipy.spatial.distance import cosine as cos_dist
+
+def embeddings_to_probabilities(embeddings, contains_negatives, verbose=False):
+    A, B, C = embeddings
+    distances = [cos_dist(B, C), cos_dist(A, C), cos_dist(A, B)]
+    if not contains_negatives:
+        distances = [1-dist for dist in distances] # normalized distance assuming all-positive
+    else:
+        distances = [1-(dist+1)/2 for dist in distances] # normalized distance for possibly negative embeddings
+    sum_distances = sum(distances)
+    probability_estimates = [e/sum_distances for e in distances]
+
+    if verbose:
+        distances = [round(float(d), 3) for d in distances] # round for better readability
+        probability_estimates = [round(float(p), 3) for p in probability_estimates] # round for better readability
+        print()
+        print(f"{'embeddings:':<16} {str(embeddings):>20}")
+        print(f"{'distances:':<16} {str(distances):>20}")
+        print(f"{'probabilities:':<16} {str(probability_estimates):>20}")
+    return probability_estimates
+
+A = [0, 0, 10]
+B = [2, 0, 9]
+C = [8, 6, 4]
+embeddings_pos = [A, B, C]
+
+D = [0, -1, 10]
+E = [-2, 0, 9]
+F = [-8, 6, 4]
+embeddings_neg = [D, E, F]
+
+probability_estimates = embeddings_to_probabilities(embeddings_pos, contains_negatives=False, verbose=True)
+probability_estimates_neg = embeddings_to_probabilities(embeddings_neg, contains_negatives=True, verbose=True)
+
+```
+
+### Next 
+The above code block above defines a function to estimate a choice distribution for a triplet. Now, you need to write a function to do that for a dataframe of embeddings, and save it to a .csv file. 
+
+```{python}
+
+
+```
