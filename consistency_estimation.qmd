@@ -60,6 +60,7 @@ The above code block above defines a function to estimate a choice distribution 
 - [ ] Make a column identifying the image selected for each triplet, so you can sort the other cols
 - [ ] 
 
+## Normalized Probabilities From Human Responses
 ```{python}
 
 triplets_full = pd.read_parquet("data/triplets_full.parquet")
@@ -106,5 +107,5 @@ agg_5plus = agg.loc[
 
 ### Writing the aggregated variance to human_triplet_variance.csv
 ```{python}
-agg_5plus.to_csv("data/agg_5plus.csv")
+agg_5plus.to_csv("data/agg_5plus.csv", index=False)
 ```
