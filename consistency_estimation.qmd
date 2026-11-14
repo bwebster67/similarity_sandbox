@@ -64,33 +64,35 @@ The above code block above defines a function to estimate a choice distribution 
 ```{python}
 
 triplets_full = pd.read_parquet("data/triplets_full.parquet")
-triplets = triplets_full[['image1','image2','image3']] - 1 #subtracting 1 so they're 0-indexed
+triplets = triplets_full[['image1','image2','image3','choice']] - 1 #subtracting 1 so they're 0-indexed
 
 # Identify unique unordered triplets
 # eg. (12, 45, 87) and (87, 12, 45) are the same triplet.
 df = triplets.copy()
 
-sorted_ids = np.sort(
-    df[["image1", "image2", "image3"]].to_numpy(),
-    axis=1
-)
+image_ids = df[["image1", "image2", "image3"]].to_numpy()
+
+# Select from the original image order before sorting the triplets.
+df["choice_id"] = image_ids[np.arange(len(df)), df["choice"].to_numpy(dtype=np.intp)]
+
+sorted_ids = np.sort(image_ids, axis=1)
 
 group_cols = ["id_a", "id_b", "id_c"]
 
-chosen_ids = triplets['image3']
 df[group_cols] = sorted_ids
-df["id_chosen"] = chosen_ids
-df = df.drop(columns= ["image1", "image2", "image3"])
 
+chosen_triplets = df[['choice_id', 'id_a', 'id_b', 'id_c']]
+```
+
+```{python}
 # Number of unique triplets
 times_chosen = ["a_chosen", "b_chosen", "c_chosen"]
 
-
 # Counts how many times each was chosen
-agg = df.copy()
+agg = chosen_triplets.copy()
 agg = (
-    df.assign(**{
-        count_col: agg[id_col].eq(agg["id_chosen"]).astype(int)
+    chosen_triplets.assign(**{
+        count_col: agg[id_col].eq(agg["choice_id"]).astype(int)
         for id_col, count_col in zip(group_cols, times_chosen)
     })
     .groupby(group_cols, as_index=False, sort=False)[times_chosen]
