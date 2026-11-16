@@ -15,8 +15,8 @@ VLM responses
 
 - [x] Write a function to calculate probability estimates from embeddings.
     -  For a triplet, compute cosine distance for each pair. Normalize distance. Sum up the total. Divide each cosine distance by the total.  
-- [ ] Write a function to calculate consistency from human responses as described below.
-- [ ] Estimate response likelihood using multiple estimates of image similarity. Save each to a csv. 
+- [x] Write a function to calculate consistency from human responses as described below.
+- [x] Estimate response likelihood using multiple estimates of image similarity. Save each to a csv. 
     - CLIP
     - SPoSE-49
     - SPoSE-66
@@ -26,9 +26,9 @@ VLM responses
 
 
 ## Next:
-- [ ] Calculate consistency as descrbied below. Get rid of the current method
-- [ ] Rank triplets with 5+ responses by the highest percentage value of the three
-- [ ] Plot the distribution!
+- [x] Calculate consistency as descrbied below. Get rid of the current method
+- [x] Rank triplets with 5+ responses by the highest percentage value of the three
+- [x] Plot the distribution!
 - [ ] Obtain VLM responses for the 2000 triplets (5+ responses) 
 - [ ] Compute correlation between VLM responses and humuan consistency values
 

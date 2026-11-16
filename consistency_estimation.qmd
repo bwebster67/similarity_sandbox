@@ -73,7 +73,7 @@ To get this, I need a function that does the following
 ```{python}
 def df_embeddings_to_probabilities(df, contains_negatives= False):
     
-    out_df = pd.DataFrame(columns=['id_a', 'id_b', 'id_c', 'prop_a', 'prop_b', 'prop_c'])
+    out_df = pd.DataFrame(columns=['id_a', 'id_b', 'id_c', 'prob_a', 'prob_b', 'prob_c'])
     
     break_count = 0
     for id_a, id_b, id_c in zip(agg_5plus['id_a'], agg_5plus['id_b'], agg_5plus['id_c']):
@@ -96,7 +96,7 @@ srf = pd.read_csv("data/embeddings/srf_things_35d.csv")
 clip = pd.read_csv("data/embeddings/CLIP_embeddings.csv")
 
 # Trimming non-embedding columns
-agg_5plus = pd.read_csv("data/agg_5plus.csv")
+agg_5plus = pd.read_csv("data/probability_estimates/agg_5plus.csv")
 spose_49_trimmed = spose_49.drop(columns=['unique_id'])
 srf_trimmed = srf.drop(columns=['concept'])
 clip_trimmed = clip.drop(columns=['Unnamed: 0', 'unique_id'])
@@ -175,7 +175,7 @@ agg = (
     .sum()
 )
 
-probabilities = ["a_prob", "b_prob", "c_prob"]
+probabilities = ["prob_a", "prob_b", "prob_c"]
 agg[probabilities] = agg[times_chosen].div(agg[times_chosen].sum(axis=1), axis=0)
 
 agg_5plus = agg.loc[
@@ -185,5 +185,5 @@ agg_5plus = agg.loc[
 
 ### Writing the aggregated variance to human_triplet_variance.csv
 ```{python}
-agg_5plus.to_csv("data/agg_5plus.csv", index=False)
+agg_5plus.to_csv("data/probability_estimates/agg_5plus.csv", index=False)
 ```

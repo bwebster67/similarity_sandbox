@@ -1,0 +1,60 @@
+
+## Computing correlation between 
+
+```{python}
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+import seaborn as sns
+
+clip_probs = pd.read_csv('data/probability_estimates/clip_probs.csv')
+spose_49_probs = pd.read_csv('data/probability_estimates/spose_49_probs.csv')
+spose_66_probs = pd.read_csv('data/probability_estimates/spose_66_probs.csv')
+srf_probs = pd.read_csv('data/probability_estimates/srf_probs.csv')
+agg_5plus = pd.read_csv('data/probability_estimates/agg_5plus.csv')
+human_probs = agg_5plus[['id_a', 'id_b', 'id_c', 'prob_a', 'prob_b', 'prob_c']]
+```
+
+```{python}
+dfs = {
+    "clip": clip_probs,
+    "spose49": spose_49_probs,
+    "spose66": spose_66_probs,
+    "srf": srf_probs,
+    "human": human_probs
+}
+
+cols = ["prob_a", "prob_b", "prob_c"]
+
+# Flatten each DataFrame into one vector
+vectors = {
+    name: df[cols].to_numpy().flatten()
+    for name, df in dfs.items()
+}
+
+# Compute pairwise correlations
+corr_matrix = pd.DataFrame({
+    name1: {
+        name2: np.corrcoef(v1, v2)[0, 1]
+        for name2, v2 in vectors.items()
+    }
+    for name1, v1 in vectors.items()
+})
+
+print(corr_matrix.round(3))
+```
+
+```{python}
+sns.heatmap(
+    corr_matrix,
+    annot=True,
+    fmt=".3f",
+    cmap="coolwarm",
+    vmin=-1,
+    vmax=1,
+    square=True
+)
+
+plt.title("Correlation Between Probability Distributions")
+plt.show()
+```
