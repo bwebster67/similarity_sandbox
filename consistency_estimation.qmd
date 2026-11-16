@@ -20,7 +20,7 @@ import matplotlib.pyplot as plt
 ```{python}
 from scipy.spatial.distance import cosine as cos_dist
 
-def embeddings_to_probabilities(embeddings, contains_negatives, verbose=False):
+def triplet_to_probabilities(embeddings, contains_negatives, verbose=False):
     A, B, C = embeddings
     distances = [cos_dist(B, C), cos_dist(A, C), cos_dist(A, B)]
     if not contains_negatives:
@@ -49,16 +49,92 @@ E = [-2, 0, 9]
 F = [-8, 6, 4]
 embeddings_neg = [D, E, F]
 
-probability_estimates = embeddings_to_probabilities(embeddings_pos, contains_negatives=False, verbose=True)
-probability_estimates_neg = embeddings_to_probabilities(embeddings_neg, contains_negatives=True, verbose=True)
+probability_estimates = triplet_to_probabilities(embeddings_pos, contains_negatives=False, verbose=True)
+probability_estimates_neg = triplet_to_probabilities(embeddings_neg, contains_negatives=True, verbose=True)
 
 ```
 
+## Getting Estimates For Embeddings
+
+## PLAN
+### I have
+- all 4 different embeddings of the THINGS images
+- the 4.6m+ triplet responses
+- estimated probabilities for the triplet responses
+- a function that estimates the probabilities for a triplet
+
+### I need
+- probability estimates for each of the 4 embedding dataframes
+
+To get this, I need a function that does the following
+- gets the indices for the relevant triplets (those with 5+ responses)
+- then for each triplet in the embedding, get the probabilities 
+
+```{python}
+def df_embeddings_to_probabilities(df, contains_negatives= False):
+    
+    out_df = pd.DataFrame(columns=['id_a', 'id_b', 'id_c', 'prop_a', 'prop_b', 'prop_c'])
+    
+    break_count = 0
+    for id_a, id_b, id_c in zip(agg_5plus['id_a'], agg_5plus['id_b'], agg_5plus['id_c']):
+        # print(id_a, id_b, id_c)
+        pe = triplet_to_probabilities(
+            [df.iloc[id_a], df.iloc[id_b], df.iloc[id_c]],
+            contains_negatives= contains_negatives,
+            )
+        # print(pe)
+        out_df.loc[len(out_df)] = [id_a, id_b, id_c, pe[0], pe[1], pe[2]]
+
+    return out_df
+```
+
+```{python}
+# Importing Data
+spose_66 = pd.read_csv("data/embeddings/spose_embedding_66d_sorted.txt", sep="\t", header=None)
+spose_49 = pd.read_csv("data/embeddings/wrangled_embeddings.csv")
+srf = pd.read_csv("data/embeddings/srf_things_35d.csv") 
+clip = pd.read_csv("data/embeddings/CLIP_embeddings.csv")
+
+# Trimming non-embedding columns
+agg_5plus = pd.read_csv("data/agg_5plus.csv")
+spose_49_trimmed = spose_49.drop(columns=['unique_id'])
+srf_trimmed = srf.drop(columns=['concept'])
+clip_trimmed = clip.drop(columns=['Unnamed: 0', 'unique_id'])
+
+spose_49_probs = df_embeddings_to_probabilities(spose_49_trimmed, contains_negatives= True)
+spose_66_probs = df_embeddings_to_probabilities(spose_66, contains_negatives= False)
+srf_probs = df_embeddings_to_probabilities(srf_trimmed, contains_negatives= False)
+clip_probs = df_embeddings_to_probabilities(clip_trimmed, contains_negatives= True)
+```
+### Saving to files
+```{python}
+spose_49_probs.to_csv('data/probability_estimates/spose_49_probs.csv')
+spose_66_probs.to_csv('data/probability_estimates/spose_66_probs.csv')
+srf_probs.to_csv('data/probability_estimates/srf_probs.csv')
+clip_probs.to_csv('data/probability_estimates/clip_probs.csv')
+```
+
+
+```{python}
+spose_49_probs = embeddings_to_probabilities(spose_49, contains_negatives=False, verbose=False)
+print(spose_49.head())
+print(spose_49_probs.head())
+```
+
+### Testing to make sure ordering is correct (it is!)
+```{python}
+# boar_49 = spose_49.iloc[151][1:]
+# aardvark_49 = spose_49.iloc[0][1:]
+# abacus_49 = spose_49.iloc[1][1:]
+
+# boar_66 = spose_66.iloc[151]
+# aardvark_66 = spose_66.iloc[0]
+# abacus_66 = spose_66.iloc[1]
+```
+
+
 ### Next 
 The above code block above defines a function to estimate a choice distribution for a triplet. Now, you need to write a function to do that for a dataframe of embeddings, and save it to a .csv file. 
-
-- [ ] Make a column identifying the image selected for each triplet, so you can sort the other cols
-- [ ] 
 
 ## Normalized Probabilities From Human Responses
 ```{python}
@@ -99,8 +175,8 @@ agg = (
     .sum()
 )
 
-proportions = ["a_prop", "b_prop", "c_prop"]
-agg[proportions] = agg[times_chosen].div(agg[times_chosen].sum(axis=1), axis=0)
+probabilities = ["a_prob", "b_prob", "c_prob"]
+agg[probabilities] = agg[times_chosen].div(agg[times_chosen].sum(axis=1), axis=0)
 
 agg_5plus = agg.loc[
     agg[["a_chosen", "b_chosen", "c_chosen"]].sum(axis=1) >= 5
