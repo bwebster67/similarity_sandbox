@@ -1,0 +1,8 @@
+{
+  "model": "REPLACE_WITH_PINNED_CLAUDE_MODEL_ID",
+  "max_tokens": 512,
+  "temperature": null,
+  "probability_tolerance": 0.001,
+  "max_attempts": 3,
+  "timeout_seconds": 120
+}

@@ -1,0 +1,136 @@
+---
+title: "Preparing the VLM trial CSV"
+format: html
+jupyter: python3
+---
+
+This notebook prepares `vlm/trials.csv` for `run_trials.py`. It reads every
+triplet in `agg_5plus.csv`, looks up each object's `unique_id` in
+`CLIP_embeddings.csv`, and resolves that name to its reference image.
+It does not send API requests or create a Claude Batch API job.
+
+## Locate the project and input files
+
+Run the cells in order from either the project root or `vlm/`.
+Only the output CSV inside `vlm/` is written; source files are read unchanged.
+
+```{python}
+import csv
+import os
+from pathlib import Path
+
+working_dir = Path.cwd().resolve()
+project_root = next(
+    (path for path in (working_dir, *working_dir.parents)
+     if (path / "data/embeddings/CLIP_embeddings.csv").is_file()
+     and (path / "vlm/run_trials.py").is_file()),
+    None,
+)
+if project_root is None:
+    raise FileNotFoundError("Run this notebook from the project root or vlm/.")
+
+clip_path = project_root / "data/embeddings/CLIP_embeddings.csv"
+triplets_path = project_root / "data/probability_estimates/agg_5plus.csv"
+image_dir = project_root / "data/hebart_reference_images"
+output_path = project_root / "vlm/trials.csv"
+
+def read_csv(path):
+    with path.open(newline="", encoding="utf-8-sig") as stream:
+        reader = csv.DictReader(stream)
+        return reader.fieldnames, list(reader)
+
+clip_columns, clip_rows = read_csv(clip_path)
+triplet_columns, triplet_rows = read_csv(triplets_path)
+if "unique_id" not in (clip_columns or []):
+    raise ValueError("CLIP_embeddings.csv must contain unique_id.")
+if not {"id_a", "id_b", "id_c"}.issubset(triplet_columns or []):
+    raise ValueError("agg_5plus.csv must contain id_a, id_b, and id_c.")
+if not clip_rows or not triplet_rows:
+    raise ValueError("Input CSVs must not be empty.")
+
+print(f"Loaded {len(clip_rows):,} CLIP objects and {len(triplet_rows):,} triplets.")
+```
+
+## Map the numeric IDs to reference images
+
+The existing embedding analysis uses `df.iloc[id]`: triplet IDs are zero-based
+CLIP row positions. The CLIP CSV also contains a saved index in its unnamed
+first column. Verify that index against the row positions before mapping;
+do not sort the CLIP rows or subtract one from the IDs.
+
+```{python}
+index_column = clip_columns[0]
+if index_column not in ("", "Unnamed: 0"):
+    raise ValueError("Expected the saved CLIP index in the first column.")
+
+image_by_id = {}
+seen_names = set()
+for object_id, row in enumerate(clip_rows):
+    if int(row[index_column]) != object_id:
+        raise ValueError(f"CLIP saved index disagrees with row position {object_id}.")
+    unique_id = row["unique_id"]
+    if not unique_id or unique_id != unique_id.strip() or unique_id in seen_names:
+        raise ValueError(f"Blank, padded, or duplicate unique_id: {unique_id!r}")
+    if Path(unique_id).name != unique_id:
+        raise ValueError(f"Expected an image basename: {unique_id!r}")
+    seen_names.add(unique_id)
+    image = image_dir / f"{unique_id}.jpg"
+    if not image.is_file():
+        raise FileNotFoundError(f"No reference image for CLIP row {object_id}: {image}")
+    image_by_id[object_id] = image
+
+print(f"Verified {len(image_by_id):,} ID-to-image mappings.")
+```
+
+## Build and save all trials
+
+Keep every source row in its original order and preserve the original A/B/C
+positions. Trial IDs encode the ordered object IDs plus the one-based source
+row number, so even repeated triplets have distinct trial IDs. The object IDs
+are also saved as separate columns for comparison with the human responses.
+Image paths are relative to `vlm/trials.csv`, as required by the runner.
+
+```{python}
+fields = ["trial_id", "image_a", "image_b", "image_c", "id_a", "id_b", "id_c"]
+trials = []
+for row_number, source in enumerate(triplet_rows, start=1):
+    ids = {label: int(source[f"id_{label}"]) for label in "abc"}
+    if len(set(ids.values())) != 3:
+        raise ValueError(f"Repeated object within source triplet row {row_number}.")
+    trial = {
+        "trial_id": f"triplet-{ids['a']}-{ids['b']}-{ids['c']}-row-{row_number:04d}"
+    }
+    for label, object_id in ids.items():
+        if object_id not in image_by_id:
+            raise ValueError(f"Unknown object ID {object_id} in source row {row_number}.")
+        trial[f"id_{label}"] = object_id
+        trial[f"image_{label}"] = Path(
+            os.path.relpath(image_by_id[object_id], output_path.parent)
+        ).as_posix()
+    trials.append(trial)
+
+# Validate the entire manifest before replacing the output file.
+if len(trials) != len(triplet_rows):
+    raise ValueError("Output trial count differs from the source.")
+if len({trial["trial_id"] for trial in trials}) != len(trials):
+    raise ValueError("Trial IDs are not unique.")
+
+with output_path.open("w", newline="", encoding="utf-8") as stream:
+    writer = csv.DictWriter(stream, fieldnames=fields)
+    writer.writeheader()
+    writer.writerows(trials)
+
+print(f"Saved {len(trials):,} trials to {output_path}")
+for trial in trials[:3]:
+    print(trial)
+```
+
+Re-running these cells regenerates `trials.csv` from the source files. If the
+sources or ordering change after collecting responses, start a new run directory
+instead of mixing the new manifest with existing results.
+
+From the project root, check the generated manifest without calling Claude:
+
+```powershell
+vlm\.venv\Scripts\python.exe vlm\run_trials.py --mode check --trials trials.csv
+```

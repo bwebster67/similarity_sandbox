@@ -1,0 +1,8 @@
+{
+  "model": "claude-sonnet-5-5",
+  "max_tokens": 512,
+  "temperature": null,
+  "probability_tolerance": 0.001,
+  "max_attempts": 3,
+  "timeout_seconds": 120
+}
