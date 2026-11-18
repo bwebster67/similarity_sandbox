@@ -115,12 +115,6 @@ clip_probs.to_csv('data/probability_estimates/clip_probs.csv')
 ```
 
 
-```{python}
-spose_49_probs = embeddings_to_probabilities(spose_49, contains_negatives=False, verbose=False)
-print(spose_49.head())
-print(spose_49_probs.head())
-```
-
 ### Testing to make sure ordering is correct (it is!)
 ```{python}
 # boar_49 = spose_49.iloc[151][1:]
@@ -131,10 +125,6 @@ print(spose_49_probs.head())
 # aardvark_66 = spose_66.iloc[0]
 # abacus_66 = spose_66.iloc[1]
 ```
-
-
-### Next 
-The above code block above defines a function to estimate a choice distribution for a triplet. Now, you need to write a function to do that for a dataframe of embeddings, and save it to a .csv file. 
 
 ## Normalized Probabilities From Human Responses
 ```{python}

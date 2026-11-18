@@ -58,3 +58,85 @@ sns.heatmap(
 plt.title("Correlation Between Probability Distributions")
 plt.show()
 ```
+
+## NEXT PLOT
+```{python}
+# for each modality: (i.e spose49)
+    # compute the diff against human
+
+def compute_diff(model, human):
+    """
+    model and human must each have columns ['prob_a', 'prob_b', 'prob_c']
+    """
+    df_out = pd.DataFrame(
+        columns=['model_prob_a', 'model_prob_b', 'model_prob_c', 'human_prob_a', 'human_prob_b', 'human_prob_c', 'diff_a', 'diff_b', 'diff_c', 'diff_sum'])
+    df_out[['model_prob_a', 'model_prob_b', 'model_prob_c']] = model[['prob_a', 'prob_b', 'prob_c']]
+    df_out[['human_prob_a', 'human_prob_b', 'human_prob_c']] = human[['prob_a', 'prob_b', 'prob_c']]
+    df_out['diff_a'] = abs(df_out['model_prob_a'] - df_out['human_prob_a'])
+    df_out['diff_b'] = abs(df_out['model_prob_b'] - df_out['human_prob_b'])
+    df_out['diff_c'] = abs(df_out['model_prob_c'] - df_out['human_prob_c'])
+    df_out['diff_sum'] = df_out['diff_a'] + df_out['diff_b'] + df_out['diff_c']
+    df_out['diff_mean'] = df_out['diff_sum']/3
+    df_out['diff_sd'] = df_out[['diff_a', 'diff_b', 'diff_c']].std(axis=1)
+    return df_out
+```
+
+```{python}
+spose_49_diff = compute_diff(spose_49_probs, human_probs)
+spose_66_diff = compute_diff(spose_66_probs, human_probs)
+srf_diff = compute_diff(srf_probs, human_probs)
+clip_diff = compute_diff(clip_probs, human_probs)
+```
+
+## Plotting
+```{python}
+def plot_mean_difference(model_diff, human_probs, model_name="(model)"):
+
+    fig, ax = plt.subplots()
+
+    ax.scatter(
+        human_probs[['prob_a', 'prob_b', 'prob_c']].max(axis=1),
+        model_diff['diff_sum'], 
+        alpha=0.5
+    )
+    plt.title(f'{model_name} mean difference from human probabilities.')
+    plt.xlabel('Maximum choice probability (human)')
+    plt.ylabel('Mean absolute difference from human probabilities')
+    ax.axvline(x=0.333, color='black', linestyle='--', linewidth=1.5, label='x min (x=0.333)')
+
+    plt.show()
+```
+
+```{python}
+plot_mean_difference(spose_49_diff, human_probs, "SPoSE-49")
+plot_mean_difference(spose_66_diff, human_probs, "SPoSE-66")
+plot_mean_difference(srf_diff, human_probs, "SRF")
+plot_mean_difference(clip_diff, human_probs, "CLIP")
+```
+
+```{python}
+def plot_max_probabilities(model_probs, human_probs, model_name="(model)"):
+
+    fig, ax = plt.subplots()
+
+    ax.scatter(
+        human_probs[['prob_a', 'prob_b', 'prob_c']].max(axis=1),
+        model_probs[['prob_a', 'prob_b', 'prob_c']].max(axis=1),
+        alpha=0.25
+    )
+    plt.title(f'Max estimated prob. for {model_name} and human choices.')
+    plt.xlabel('Maximum choice probability (human)')
+    plt.ylabel('Maximum choice probability (model)')
+    ax.axvline(x=0.333, color='black', linestyle='--', linewidth=1.5, label='x min (x=0.333)')
+    ax.axhline(y=0.333, color='black', linestyle='--', linewidth=1.5, label='y min (y=0.333)')
+    plt.xlim((0.3, 1))
+    # plt.ylim((0.3, 1))
+    plt.show()
+```
+
+```{python}
+plot_max_probabilities(spose_49_probs, human_probs, "SPoSE-49")
+plot_max_probabilities(spose_66_probs, human_probs, "SPoSE-66")
+plot_max_probabilities(srf_probs, human_probs, "SRF")
+plot_max_probabilities(clip_probs, human_probs, "CLIP")
+```
