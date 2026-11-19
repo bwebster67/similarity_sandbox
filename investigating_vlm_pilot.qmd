@@ -1,0 +1,20 @@
+
+
+```{python}
+import pandas as pd
+import numpy as np
+```
+
+```{python}
+vlm_pilot = pd.read_csv("vlm/runs/live-pilot-v2/results.csv")
+clip_probs = pd.read_csv('data/probability_estimates/clip_probs.csv')
+spose_49_probs = pd.read_csv('data/probability_estimates/spose_49_probs.csv')
+spose_66_probs = pd.read_csv('data/probability_estimates/spose_66_probs.csv')
+srf_probs = pd.read_csv('data/probability_estimates/srf_probs.csv')
+agg_5plus = pd.read_csv('data/probability_estimates/agg_5plus.csv')
+human_probs = agg_5plus[['id_a', 'id_b', 'id_c', 'prob_a', 'prob_b', 'prob_c']]
+```
+
+```
+
+```

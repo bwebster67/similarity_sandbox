@@ -1,4 +1,4 @@
-"""Independent Claude odd-one-out trials. See README.md for the pilot workflow."""
+"""Independent Claude odd-one-out trials. See VLM_README.md for the pilot workflow."""
 from __future__ import annotations
 
 import argparse
@@ -16,7 +16,7 @@ import time
 from datetime import datetime, timezone
 
 ROOT = Path(__file__).resolve().parent
-PROBS = ("probability_a", "probability_b", "probability_c")
+PROBS = ("prob_a", "prob_b", "prob_c")
 SCHEMA = {
     "type": "object",
     "properties": {**{key: {"type": "number"} for key in PROBS},
@@ -215,7 +215,7 @@ def run(args):
         sdk_version = importlib.metadata.version("anthropic")
         client = Anthropic(max_retries=0, timeout=cfg["timeout_seconds"])
         validate_sdk_request(client.messages.create, build_request(selected[0], cfg, prompt))
-    settings = {"runner_version": 2, "mode": args.mode, "config": cfg, "prompt": prompt,
+    settings = {"runner_version": 3, "mode": args.mode, "config": cfg, "prompt": prompt,
                 "schema": SCHEMA, "trials": trials, "anthropic_sdk_version": sdk_version}
     settings_hash = digest(settings)
     out = writable_path(args.output)
@@ -252,7 +252,7 @@ def execute(out, settings, settings_hash, trials, cfg, prompt, client):
             try:
                 request = build_request(trial, cfg, prompt)
                 if client is None:
-                    value = {"probability_a": 0.2, "probability_b": 0.3, "probability_c": 0.5,
+                    value = {"prob_a": 0.2, "prob_b": 0.3, "prob_c": 0.5,
                              "explanation": "MOCK: synthetic pipeline test; no image judgment."}
                     raw = {"mode": "mock", "value": value}
                     response_model, request_id, input_tokens, output_tokens = "mock", "", 0, 0

@@ -57,6 +57,20 @@ class TrialTests(unittest.TestCase):
             output = Path(folder)
             args = self.args(output)
             self.assertEqual(runner.run(args), 0)
+            with (output / "results.csv").open(newline="") as stream:
+                rows = list(csv.DictReader(stream))
+            self.assertEqual(len(rows), 2)
+            for row in rows:
+                self.assertEqual([float(row[key]) for key in ("prob_a", "prob_b", "prob_c")],
+                                 [.2, .3, .5])
+            saved = json.loads((output / "settings.json").read_text())
+            self.assertEqual(set(saved["schema"]["properties"]),
+                             {"prob_a", "prob_b", "prob_c", "explanation"})
+            for key in ("prob_a", "prob_b", "prob_c"):
+                self.assertIn(key, saved["prompt"])
+            for line in (output / "responses.jsonl").read_text().splitlines():
+                self.assertEqual(set(json.loads(line)["response"]["value"]),
+                                 {"prob_a", "prob_b", "prob_c", "explanation"})
             before = (output / "results.csv").read_bytes()
             self.assertEqual(runner.run(args), 0)
             self.assertEqual(before, (output / "results.csv").read_bytes())
@@ -92,7 +106,8 @@ class TrialTests(unittest.TestCase):
         cfg = runner.read_config(runner.ROOT / "config.example.json")
         cfg["model"] = "test-pinned-model"
         trials = runner.load_trials(runner.ROOT / "examples/demo_trials.csv")[:1]
-        value = dict(zip(runner.PROBS, (.2, .3, .5)), explanation="C differs from A and B.")
+        value = {"prob_a": .2, "prob_b": .3, "prob_c": .5,
+                 "explanation": "C differs from A and B."}
         response = SimpleNamespace(stop_reason="end_turn", model="test-pinned-model", _request_id="req-test",
                                    content=[SimpleNamespace(type="text", text=json.dumps(value))],
                                    usage=SimpleNamespace(input_tokens=100, output_tokens=50),
@@ -107,6 +122,8 @@ class TrialTests(unittest.TestCase):
                 row = next(csv.DictReader(stream))
             self.assertEqual(row["mode"], "live")
             self.assertEqual(row["request_id"], "req-test")
+            self.assertEqual([float(row[key]) for key in ("prob_a", "prob_b", "prob_c")],
+                             [.2, .3, .5])
 
     def test_output_boundary(self):
         with self.assertRaises(ValueError):

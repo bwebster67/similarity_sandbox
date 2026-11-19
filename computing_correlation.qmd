@@ -13,16 +13,23 @@ spose_66_probs = pd.read_csv('data/probability_estimates/spose_66_probs.csv')
 srf_probs = pd.read_csv('data/probability_estimates/srf_probs.csv')
 agg_5plus = pd.read_csv('data/probability_estimates/agg_5plus.csv')
 human_probs = agg_5plus[['id_a', 'id_b', 'id_c', 'prob_a', 'prob_b', 'prob_c']]
+vlm_df = pd.read_csv('vlm/runs/study-2000/results.csv')
+vlm_probs = vlm_df[['id_a', 'id_b', 'id_c', 'prob_a', 'prob_b', 'prob_c']].copy()
 ```
 
 ```{python}
 dfs = {
+    "human": human_probs,
     "clip": clip_probs,
     "spose49": spose_49_probs,
     "spose66": spose_66_probs,
     "srf": srf_probs,
-    "human": human_probs
+    "vlm" : vlm_probs
 }
+
+# TEMP - testing with vlm pilot output (10 trials)
+# dfs = {k: v.head(10) for k, v in dfs.items()}
+# print("Only using the first 10 trials for each modality to test VLM results")
 
 cols = ["prob_a", "prob_b", "prob_c"]
 
